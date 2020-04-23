@@ -10,7 +10,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-import android.support.annotation.Nullable;
+import androidx.annotation.Nullable;
 import android.util.Base64;
 import android.util.Log;
 import android.util.SparseArray;
@@ -28,6 +28,7 @@ import org.webrtc.MediaStream;
 import org.webrtc.MediaStreamTrack;
 import org.webrtc.PeerConnection;
 import org.webrtc.RtpReceiver;
+import org.webrtc.RtpTransceiver;
 import org.webrtc.StatsObserver;
 import org.webrtc.StatsReport;
 import org.webrtc.VideoTrack;
@@ -42,7 +43,8 @@ class PeerConnectionObserver implements PeerConnection.Observer {
     final List<MediaStream> localStreams;
     final Map<String, MediaStream> remoteStreams;
     final Map<String, MediaStreamTrack> remoteTracks;
-    private final VideoTrackAdapter videoTrackAdapters;
+    final boolean isUnifiedPlan;
+    final VideoTrackAdapter videoTrackAdapters;
     private final WebRTCModule webRTCModule;
 
     /**
@@ -54,9 +56,10 @@ class PeerConnectionObserver implements PeerConnection.Observer {
     private SoftReference<StringBuilder> statsToJSONStringBuilder
         = new SoftReference<>(null);
 
-    PeerConnectionObserver(WebRTCModule webRTCModule, int id) {
+    PeerConnectionObserver(WebRTCModule webRTCModule, int id, boolean isUnifiedPlan) {
         this.webRTCModule = webRTCModule;
         this.id = id;
+        this.isUnifiedPlan = isUnifiedPlan;
         this.localStreams = new ArrayList<MediaStream>();
         this.remoteStreams = new HashMap<String, MediaStream>();
         this.remoteTracks = new HashMap<String, MediaStreamTrack>();
@@ -99,6 +102,36 @@ class PeerConnectionObserver implements PeerConnection.Observer {
 
         return localStreams.remove(localStream);
     }
+
+    String addTransceiver(MediaStreamTrack.MediaType mediaType, RtpTransceiver.RtpTransceiverInit init) {
+        if (peerConnection == null) {
+            throw new Error("Impossible");
+        }
+        RtpTransceiver transceiver = peerConnection.addTransceiver(mediaType, init);
+        return this.resolveTransceiverId(transceiver);
+    }
+
+    String addTransceiver(MediaStreamTrack track, RtpTransceiver.RtpTransceiverInit init) {
+        if (peerConnection == null) {
+            throw new Error("Impossible");
+        }
+        RtpTransceiver transceiver = peerConnection.addTransceiver(track, init);
+        return this.resolveTransceiverId(transceiver);
+    }
+
+    String resolveTransceiverId(RtpTransceiver transceiver) {
+        return transceiver.getSender().id();
+    }
+
+    RtpTransceiver getTransceiver(String id) {
+        for(RtpTransceiver transceiver: this.peerConnection.getTransceivers()) {
+            if (transceiver.getSender().id().equals(id)) {
+                return transceiver;
+            }
+        }
+        throw new Error("Unable to find transceiver");
+    }
+
 
     PeerConnection getPeerConnection() {
         return peerConnection;
@@ -472,6 +505,15 @@ class PeerConnectionObserver implements PeerConnection.Observer {
     @Override
     public void onAddTrack(final RtpReceiver receiver, final MediaStream[] mediaStreams) {
         Log.d(TAG, "onAddTrack");
+        if(isUnifiedPlan){
+            MediaStreamTrack track = receiver.track();
+            if(track != null){
+                if(track.kind().equals(MediaStreamTrack.VIDEO_TRACK_KIND)){
+                    videoTrackAdapters.addAdapter(UUID.randomUUID().toString(), (VideoTrack) track);
+                }
+                remoteTracks.put(track.id(), track);
+            }
+        }
     }
 
     @Nullable

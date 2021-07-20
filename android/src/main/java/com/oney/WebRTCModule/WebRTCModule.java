@@ -929,7 +929,6 @@ public class WebRTCModule extends ReactContextBaseJavaModule {
                                               int id,
                                               Callback callback) {
         ThreadUtils.runOnExecutor(() -> {
-            peerConnectionAddICECandidateAsync(candidateMap, id, callback);
             PeerConnection peerConnection = getPeerConnection(id);
             if (peerConnection == null) {
                 Log.d(TAG, "peerConnectionAddICECandidate() peerConnection is null");

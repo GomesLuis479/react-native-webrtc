@@ -449,7 +449,6 @@ public class WebRTCModule extends ReactContextBaseJavaModule {
 
         observer.setPeerConnection(peerConnection);
         mPeerConnectionObservers.put(id, observer);
->>>>>>> 717ed34 (api: Adding and stopping Transceiver (android + js))
     }
 
     MediaStream getStreamForReactTag(String streamReactTag) {
